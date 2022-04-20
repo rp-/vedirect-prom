@@ -1,0 +1,10 @@
+[Unit]
+Description=VE.Direct to Prometheus Bridge
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/vedirect-prom
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

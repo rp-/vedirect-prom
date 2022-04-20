@@ -1,0 +1,5 @@
+FROM debian:bullseye
+
+RUN apt-get update && apt-get install -y build-essential curl gcc-arm-linux-gnueabihf
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN /root/.cargo/bin/rustup target add armv7-unknown-linux-gnueabihf
