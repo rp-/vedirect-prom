@@ -10,7 +10,7 @@ use prometheus_client::encoding::text::{encode, Encode};
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
-use vedirect::prelude::VedirectParser;
+use vedirect::Events;
 
 #[derive(Clone, Hash, PartialEq, Eq, Encode)]
 struct Labels {
@@ -19,6 +19,7 @@ struct Labels {
 }
 
 const BIND_ADDR: &str = "0.0.0.0:9975";
+const DEVICE_NAME: &str = "mppt";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -34,8 +35,6 @@ fn main() {
         orig_hook(panic_info);
         std::process::exit(1);
     }));
-
-    let device_name = "mppt";
 
     let mut registry = <Registry>::default();
     let battery_voltage = Family::<Labels, Gauge<f64, AtomicU64>>::default();
@@ -74,9 +73,6 @@ fn main() {
         "load current in A",
         Box::new(load_current.clone()),
     );
-    let label = Labels {
-        device: device_name.to_string(),
-    };
 
     let server = Arc::new(tiny_http::Server::http(BIND_ADDR).unwrap());
     println!("Now listening on port 9975 and {}", vedirect_sport);
@@ -92,33 +88,66 @@ fn main() {
             .open()
             .expect("Failed to open vedirect serial port");
 
+        struct Listener<'a> {
+            battery_voltage: &'a Family<Labels, Gauge<f64>>,
+            battery_current: &'a Family<Labels, Gauge<f64>>,
+            battery_state: &'a Family<Labels, Gauge<f64>>,
+            panel_voltage: &'a Family<Labels, Gauge<f64>>,
+            panel_power: &'a Family<Labels, Gauge<f64>>,
+            load_current: &'a Family<Labels, Gauge<f64>>,
+        }
+
+        impl Events<vedirect::MPPT> for Listener<'_> {
+            fn on_complete_block(&mut self, mppt: vedirect::MPPT) {
+                let label = Labels {
+                    device: DEVICE_NAME.to_string(),
+                };
+
+                self.battery_voltage
+                    .get_or_create(&label)
+                    .set(mppt.channel1_voltage.into());
+                self.battery_current
+                    .get_or_create(&label)
+                    .set(mppt.battery_current.into());
+                self.battery_state
+                    .get_or_create(&label)
+                    .set((mppt.state_of_operation as u32).into());
+                self.panel_voltage
+                    .get_or_create(&label)
+                    .set(mppt.panel_voltage.into());
+                self.panel_power
+                    .get_or_create(&label)
+                    .set(mppt.panel_power.into());
+                self.load_current
+                    .get_or_create(&label)
+                    .set(mppt.load_current.into());
+            }
+
+            fn on_missing_field(&mut self, label: String) {
+                eprintln!("missing field: {}", label);
+            }
+
+            fn on_mapping_error(&mut self, _error: vedirect::VEError) {}
+
+            fn on_parse_error(&mut self, error: vedirect::VEError, _parse_buf: &Vec<u8>) {
+                eprintln!("parse error: {:?}", error);
+            }
+        }
+
         let mut serial_buf: Vec<u8> = vec![0; 1024];
-        let mut parser = vedirect::Parser::new();
+        let mut listener = Listener {
+            battery_voltage: &battery_voltage,
+            battery_current: &battery_current,
+            battery_state: &battery_state,
+            panel_voltage: &panel_voltage,
+            panel_power: &panel_power,
+            load_current: &load_current,
+        };
+        let mut parser = vedirect::Parser::new(&mut listener);
         loop {
             match port.read(serial_buf.as_mut_slice()) {
                 Ok(t) => {
-                    parser
-                        .feed(&serial_buf[..t], |mppt: vedirect::MPPT| {
-                            battery_voltage
-                                .get_or_create(&label)
-                                .set(mppt.channel1_voltage.into());
-                            battery_current
-                                .get_or_create(&label)
-                                .set(mppt.battery_current.into());
-                            battery_state
-                                .get_or_create(&label)
-                                .set((mppt.state_of_operation as u32).into());
-                            panel_voltage
-                                .get_or_create(&label)
-                                .set(mppt.panel_voltage.into());
-                            panel_power
-                                .get_or_create(&label)
-                                .set(mppt.panel_power.into());
-                            load_current
-                                .get_or_create(&label)
-                                .set(mppt.load_current.into());
-                        })
-                        .unwrap();
+                    parser.feed(&serial_buf[..t]).unwrap();
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::TimedOut => eprintln!("timeout"),
                 Err(e) => eprintln!("{:?}", e),
