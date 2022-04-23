@@ -416,6 +416,7 @@ dependencies = [
 [[package]]
 name = "vedirect"
 version = "0.1.0"
+source = "git+https://github.com/dbr/vedirect-rs.git?rev=ea8d4ecf1a8e9030941e3eedb44a570fd03e5641#ea8d4ecf1a8e9030941e3eedb44a570fd03e5641"
 dependencies = [
  "strum",
  "strum_macros",
