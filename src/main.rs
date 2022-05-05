@@ -147,10 +147,15 @@ fn main() {
         loop {
             match port.read(serial_buf.as_mut_slice()) {
                 Ok(t) => {
-                    parser.feed(&serial_buf[..t]).unwrap();
+                    match parser.feed(&serial_buf[..t]) {
+                        Err(e) => eprintln!("feed error: {:?}", e),
+                        Ok(_) => (),
+                    }
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::TimedOut => eprintln!("timeout"),
-                Err(e) => eprintln!("{:?}", e),
+                Err(e) => {
+                    panic!("Error: {:?}", e)
+                }
             }
             std::thread::sleep(Duration::from_millis(1000)); // vedirect transmits every second
         }
