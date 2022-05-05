@@ -7,6 +7,7 @@ use std::time::Duration;
 use std::{env, io};
 
 use prometheus_client::encoding::text::{encode, Encode};
+use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
@@ -73,6 +74,12 @@ fn main() {
         "load current in A",
         Box::new(load_current.clone()),
     );
+    let parse_errors = Family::<Labels, Counter<f64, AtomicU64>>::default();
+    registry.register(
+        "vedirectprom_parse_errors",
+        "Count of parse errors",
+        Box::new(parse_errors.clone()),
+    );
 
     let server = Arc::new(tiny_http::Server::http(BIND_ADDR).unwrap());
     println!("Now listening on port 9975 and {}", vedirect_sport);
@@ -95,6 +102,7 @@ fn main() {
             panel_voltage: &'a Family<Labels, Gauge<f64>>,
             panel_power: &'a Family<Labels, Gauge<f64>>,
             load_current: &'a Family<Labels, Gauge<f64>>,
+            parse_errors: &'a Family<Labels, Counter<f64>>,
         }
 
         impl Events<vedirect::MPPT> for Listener<'_> {
@@ -127,10 +135,16 @@ fn main() {
                 eprintln!("missing field: {}", label);
             }
 
-            fn on_mapping_error(&mut self, _error: vedirect::VEError) {}
+            fn on_mapping_error(&mut self, error: vedirect::VEError) {
+                eprintln!("error mapping field: {}", error);
+            }
 
             fn on_parse_error(&mut self, error: vedirect::VEError, _parse_buf: &[u8]) {
+                let label = Labels {
+                    device: DEVICE_NAME.to_string(),
+                };
                 eprintln!("parse error: {:?}", error);
+                self.parse_errors.get_or_create(&label).inc();
             }
         }
 
@@ -142,6 +156,7 @@ fn main() {
             panel_voltage: &panel_voltage,
             panel_power: &panel_power,
             load_current: &load_current,
+            parse_errors: &parse_errors,
         };
         let mut parser = vedirect::Parser::new(&mut listener);
         loop {
