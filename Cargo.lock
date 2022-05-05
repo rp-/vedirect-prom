@@ -415,8 +415,9 @@ dependencies = [
 
 [[package]]
 name = "vedirect"
-version = "0.1.0"
-source = "git+https://github.com/dbr/vedirect-rs.git?rev=ea8d4ecf1a8e9030941e3eedb44a570fd03e5641#ea8d4ecf1a8e9030941e3eedb44a570fd03e5641"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a8147772784aaf238ae9d0da3f08adf87caeb125eea90a40dace12f79ef0bd4"
 dependencies = [
  "strum",
  "strum_macros",

@@ -129,7 +129,7 @@ fn main() {
 
             fn on_mapping_error(&mut self, _error: vedirect::VEError) {}
 
-            fn on_parse_error(&mut self, error: vedirect::VEError, _parse_buf: &Vec<u8>) {
+            fn on_parse_error(&mut self, error: vedirect::VEError, _parse_buf: &[u8]) {
                 eprintln!("parse error: {:?}", error);
             }
         }
