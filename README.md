@@ -3,17 +3,7 @@ A Vedirect-serial to Prometheus bridge
 
 ## Build
 
-Clone vedirect-prom and vedirect-rs from my repositories:
-
-    git clone https://github.com/rp-/vedirect-prom.git
-    git clone https://github.com/rp-/vedirect-rs.git
-
-Switch in the `vedirect-rs` repo to the `mppt` branch
-
-    cd vedirect-rs
-    git switch mppt
-
-Then build it like any other rust project:
+Build it like any other rust project:
 
     cd vedirect-prom
     cargo build
